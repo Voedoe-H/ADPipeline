@@ -138,6 +138,6 @@ def train_default():
     image_paths = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
     if not image_paths:
         raise ValueError(f"No images found in {data_dir}!")
-    
+    print(f"Number Pictures:{len(image_paths)}")    
 
 train_default()
