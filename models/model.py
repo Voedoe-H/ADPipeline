@@ -26,7 +26,8 @@ class CNNAutoencoderADModel(tf.keras.Model):
 
         # Encoder Part of the model:
         self.encoder = models.Sequential([
-            layers.Conv2D(32, (3, 3), activation='relu', padding='valid', strides=2, input_shape=input_shape), # 1024x1024 -> (1024-3)/2 + 1 => 512x512x32
+            layers.Input(shape=input_shape),
+            layers.Conv2D(32, (3, 3), activation='relu', padding='valid', strides=2), # 1024x1024 -> (1024-3)/2 + 1 => 512x512x32
             layers.BatchNormalization(),
             layers.Conv2D(64, (3, 3), activation='relu', padding='valid', strides=2), # 512x512x3 -> (512-3)/2 + 1 => 255x255x64
             layers.BatchNormalization(),
@@ -47,7 +48,8 @@ class CNNAutoencoderADModel(tf.keras.Model):
 
         # Decoder Part of the model:
         self.decoder = models.Sequential([
-            layers.Dense(32 * 32 * 512, activation='relu', input_dim=latent_dim),  # Reshape to start decoding
+            layers.Input(shape=(latent_dim,)),
+            layers.Dense(32 * 32 * 512, activation='relu'),  # Reshape to start decoding
             layers.Reshape((32, 32, 512)),
             layers.Conv2DTranspose(512, (3, 3), activation='relu', padding='same', strides=2),
             layers.BatchNormalization(),
@@ -138,14 +140,15 @@ def train_default(learning_rate=1e-4, batch_size=32, epochs=50, validation_split
     image_paths = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
     if not image_paths:
         raise ValueError(f"No images found in {data_dir}!")
-    
-    # Load and preprocess images
+
     def load_and_preprocess_image(path):
-        img = tf.io.read_file(path)
-        img = tf.image.decode_image(img, channels=1)  # Grayscale, 1 channel
-        img = tf.image.resize(img, [1024, 1024])     # Ensure correct size
-        img = tf.cast(img, tf.float32) / 255.0       # Normalize to [0,1]
-        return img
+        image = tf.io.read_file(path)
+        image = tf.image.decode_image(image, channels=1, expand_animations=False)  # Set channels=1 for grayscale
+        image.set_shape([None, None, 1])  # Explicit shape: height x width x 1
+        image = tf.image.resize(image, [1024, 1024])
+        image = tf.cast(image, tf.float32) / 255.0
+        return image
+
 
     dataset = tf.data.Dataset.from_tensor_slices(image_paths)
     dataset = dataset.map(load_and_preprocess_image, num_parallel_calls=tf.data.AUTOTUNE)
