@@ -133,11 +133,82 @@ def train_model():
     # Fit the model
     model.fit(train_generator, epochs=10,steps_per_epoch=len(train_generator))
 
-def train_default():
+def train_default(learning_rate=1e-4, batch_size=32, epochs=50, validation_split=0.2):
     model = CNNAutoencoderADModel()
     image_paths = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
     if not image_paths:
         raise ValueError(f"No images found in {data_dir}!")
-    print(f"Number Pictures:{len(image_paths)}")    
+    
+    # Load and preprocess images
+    def load_and_preprocess_image(path):
+        img = tf.io.read_file(path)
+        img = tf.image.decode_image(img, channels=1)  # Grayscale, 1 channel
+        img = tf.image.resize(img, [1024, 1024])     # Ensure correct size
+        img = tf.cast(img, tf.float32) / 255.0       # Normalize to [0,1]
+        return img
+
+    dataset = tf.data.Dataset.from_tensor_slices(image_paths)
+    dataset = dataset.map(load_and_preprocess_image, num_parallel_calls=tf.data.AUTOTUNE)
+    dataset_size = len(image_paths)
+    val_size = int(dataset_size * validation_split)
+    train_size = dataset_size - val_size
+
+    train_dataset = dataset.take(train_size)
+    val_dataset = dataset.skip(train_size)
+
+    train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    val_dataset = val_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    # Define optimizer and loss
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    loss_fn = tf.keras.losses.MeanSquaredError()
+    
+    # Compile the model
+    model.compile(optimizer=optimizer, loss=loss_fn)
+    
+    # Training history
+    history = {
+        'loss': [],
+        'val_loss': []
+    }
+    
+    # Training loop
+    for epoch in range(epochs):
+        print(f"\nEpoch {epoch + 1}/{epochs}")
+        
+        # Training
+        train_loss = 0
+        num_batches = 0
+        for batch in train_dataset:
+            with tf.GradientTape() as tape:
+                reconstructed = model(batch, training=True)
+                loss = loss_fn(batch, reconstructed)
+            
+            gradients = tape.gradient(loss, model.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+            
+            train_loss += loss
+            num_batches += 1
+        
+        train_loss /= num_batches
+        
+        # Validation
+        val_loss = 0
+        num_val_batches = 0
+        for batch in val_dataset:
+            reconstructed = model(batch, training=False)
+            loss = loss_fn(batch, reconstructed)
+            val_loss += loss
+            num_val_batches += 1
+        
+        val_loss /= num_val_batches
+        
+        # Store history
+        history['loss'].append(float(train_loss))
+        history['val_loss'].append(float(val_loss))
+        
+        # Print progress
+        print(f"Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f}")
+    
+    return model, history
 
 train_default()
