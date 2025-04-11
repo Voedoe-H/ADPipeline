@@ -62,4 +62,4 @@ def good_image_pre_processing():
     augmented_images = len([f for f in os.listdir(output_data_path) if f.startswith('aug')])
     print(f"Total augmented images saved: {augmented_images}")
 
-#good_image_pre_processing() 
+good_image_pre_processing() 

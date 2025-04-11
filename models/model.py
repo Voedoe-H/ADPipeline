@@ -6,6 +6,10 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import threading
+import time
+import platform
+import sys
 
 # Statics
 data_dir = os.path.abspath("../data/processed")
@@ -135,7 +139,7 @@ def train_model():
     # Fit the model
     model.fit(train_generator, epochs=10,steps_per_epoch=len(train_generator))
 
-def train_default(learning_rate=1e-4, batch_size=32, epochs=50, validation_split=0.2):
+def train_default(learning_rate=1e-4, batch_size=32, epochs=10, validation_split=0.2):
     model = CNNAutoencoderADModel()
     image_paths = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
     if not image_paths:
@@ -214,4 +218,115 @@ def train_default(learning_rate=1e-4, batch_size=32, epochs=50, validation_split
     
     return model, history
 
-train_default()
+stop_training = False
+
+def listen_for_stop_key():
+    global stop_training
+    if platform.system() == "Windows":
+        import msvcrt
+        while not stop_training:
+            if msvcrt.kbhit():
+                key = msvcrt.getch()
+                if key.lower() == b's':
+                    stop_training = True
+                    print("\nStopping training early...")
+                    break
+            time.sleep(0.1)
+    else:
+        import select
+        while not stop_training:
+            if select.select([sys.stdin], [], [], 0.1)[0]:
+                key = sys.stdin.read(1)
+                if key.lower() == 's':
+                    stop_training = True
+                    print("\nStopping training early...")
+                    break
+
+def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=10, validation_split=0.2, sleep_time=0.5):
+    global stop_training
+    stop_training = False
+    threading.Thread(target=listen_for_stop_key, daemon=True).start()
+    print("Press 's' to stop training early.")
+
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        print(f"GPU detected: {gpus[0].name}")
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+        except RuntimeError as e:
+            print("Could not set memory growth:", e)
+        device_name = '/GPU:0'
+    else:
+        print("No GPU detected. Using CPU.")
+        device_name = '/CPU:0'
+        tf.config.threading.set_intra_op_parallelism_threads(2)
+    with tf.device(device_name):
+        model = CNNAutoencoderADModel()
+        image_paths = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
+        if not image_paths:
+            raise ValueError(f"No images found in {data_dir}!")
+
+        def load_and_preprocess_image(path):
+            image = tf.io.read_file(path)
+            image = tf.image.decode_image(image, channels=1, expand_animations=False)
+            image.set_shape([None, None, 1])
+            image = tf.image.resize(image, [1024, 1024])
+            image = tf.cast(image, tf.float32) / 255.0
+            return image
+
+        dataset = tf.data.Dataset.from_tensor_slices(image_paths)
+        dataset = dataset.map(load_and_preprocess_image, num_parallel_calls=tf.data.AUTOTUNE)
+        dataset_size = len(image_paths)
+        val_size = int(dataset_size * validation_split)
+        train_size = dataset_size - val_size
+
+        train_dataset = dataset.take(train_size)
+        val_dataset = dataset.skip(train_size)
+
+        train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+        val_dataset = val_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+        optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        loss_fn = tf.keras.losses.MeanSquaredError()
+        model.compile(optimizer=optimizer, loss=loss_fn)
+
+        history = {'loss': [], 'val_loss': []}
+        for epoch in range(epochs):
+            if stop_training:
+                print("Training stopped early.")
+                break
+
+            print(f"\nEpoch {epoch + 1}/{epochs}")
+            train_loss = 0
+            num_batches = 0
+            for batch in train_dataset:
+                with tf.GradientTape() as tape:
+                    reconstructed = model(batch, training=True)
+                    loss = loss_fn(batch, reconstructed)
+                gradients = tape.gradient(loss, model.trainable_variables)
+                optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+                train_loss += loss
+                num_batches += 1
+                time.sleep(sleep_time) 
+
+            train_loss /= num_batches
+
+            val_loss = 0
+            num_val_batches = 0
+            for batch in val_dataset:
+                reconstructed = model(batch, training=False)
+                loss = loss_fn(batch, reconstructed)
+                val_loss += loss
+                num_val_batches += 1
+                time.sleep(sleep_time)  
+
+            val_loss /= num_val_batches
+
+            history['loss'].append(float(train_loss))
+            history['val_loss'].append(float(val_loss))
+            print(f"Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f}")
+
+        return model, history
+
+train_default_GPU()
