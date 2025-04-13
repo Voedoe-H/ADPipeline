@@ -2,3 +2,5 @@
 /venv
 /data/processed
 /data/screw
+/models/trained_model
+models/model.onnx
