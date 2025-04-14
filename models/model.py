@@ -142,7 +142,6 @@ def train_model():
 
 def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=5, validation_split=0.2, ssim_weight=0.5):
     stop_training = False
-    print("Press 's' to stop training early.")
 
     tf.config.threading.set_intra_op_parallelism_threads(6)
 
@@ -176,9 +175,8 @@ def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=5, validation_spl
 
     def combined_loss(y_true, y_pred):
         mse_loss = mse_loss_fn(y_true, y_pred)
-        # SSIM expects values in [0, 1]; ensure inputs are in range
         ssim_val = tf.reduce_mean(tf.image.ssim(y_true, y_pred, max_val=1.0))
-        ssim_loss = 1.0 - ssim_val  # Convert similarity to loss
+        ssim_loss = 1.0 - ssim_val  
         return (1 - ssim_weight) * mse_loss + ssim_weight * ssim_loss
 
     model.compile(optimizer=optimizer, loss=combined_loss)
@@ -242,7 +240,7 @@ def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=5, validation_spl
 
     model_save_path = "trained_model"
     dummy_input = tf.random.normal([1, 1024, 1024, 1])
-    _ = model(dummy_input)  # Triggers model building
+    _ = model(dummy_input)
     model.save(model_save_path)
     return model, history
 
@@ -269,83 +267,5 @@ def listen_for_stop_key():
                     print("\nStopping training early...")
                     break
 
-def train_default_GPUd(learning_rate=1e-4, batch_size=4, epochs=1, validation_split=0.2):
-    global stop_training
-    stop_training = False
-    threading.Thread(target=listen_for_stop_key, daemon=True).start()
-    print("Press 's' to stop training early.")
-
-    tf.config.threading.set_intra_op_parallelism_threads(2)
-
-    model = CNNAutoencoderADModel()
-    image_paths = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
-    if not image_paths:
-        raise ValueError(f"No images found in {data_dir}!")
-
-    def load_and_preprocess_image(path):
-        image = tf.io.read_file(path)
-        image = tf.image.decode_image(image, channels=1, expand_animations=False)
-        image.set_shape([None, None, 1])
-        image = tf.image.resize(image, [1024, 1024])
-        image = tf.cast(image, tf.float32) / 255.0
-        return image
-
-    dataset = tf.data.Dataset.from_tensor_slices(image_paths)
-    dataset = dataset.map(load_and_preprocess_image, num_parallel_calls=tf.data.AUTOTUNE)
-    dataset_size = len(image_paths)
-    val_size = int(dataset_size * validation_split)
-    train_size = dataset_size - val_size
-
-    train_dataset = dataset.take(train_size)
-    val_dataset = dataset.skip(train_size)
-
-    train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    val_dataset = val_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    loss_fn = tf.keras.losses.MeanSquaredError()
-    
-    model.compile(optimizer=optimizer, loss=loss_fn)
-
-    history = {'loss': [], 'val_loss': []}
-    for epoch in range(epochs):
-        if stop_training:
-            print("Training stopped early.")
-            break
-
-        print(f"\nEpoch {epoch + 1}/{epochs}")
-        train_loss = 0
-        num_batches = 0
-        for batch in train_dataset:
-            with tf.GradientTape() as tape:
-                reconstructed = model(batch, training=True)
-                loss = loss_fn(batch, reconstructed)
-            gradients = tape.gradient(loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-            train_loss += loss
-            num_batches += 1
-                
-        train_loss /= num_batches
-
-        val_loss = 0
-        num_val_batches = 0
-        for batch in val_dataset:
-            reconstructed = model(batch, training=False)
-            loss = loss_fn(batch, reconstructed)
-            val_loss += loss
-            num_val_batches += 1
-
-        val_loss /= num_val_batches
-
-        history['loss'].append(float(train_loss))
-        history['val_loss'].append(float(val_loss))
-        print(f"Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f}")
-        
-    model_save_path = "trained_model" 
-    dummy_input = tf.random.normal([1, 1024, 1024, 1])
-    _ = model(dummy_input)  # Triggers model building
-    model.save(model_save_path)
-    #model.save(model_save_path,save_format="tf")
-    return model, history
 
 train_default_GPU()
