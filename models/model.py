@@ -140,7 +140,12 @@ def train_model():
     # Fit the model
     model.fit(train_generator, epochs=10,steps_per_epoch=len(train_generator))
 
-def train_default(learning_rate=1e-4, batch_size=32, epochs=10, validation_split=0.2):
+def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=5, validation_split=0.2, ssim_weight=0.5):
+    stop_training = False
+    print("Press 's' to stop training early.")
+
+    tf.config.threading.set_intra_op_parallelism_threads(6)
+
     model = CNNAutoencoderADModel()
     image_paths = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
     if not image_paths:
@@ -148,12 +153,11 @@ def train_default(learning_rate=1e-4, batch_size=32, epochs=10, validation_split
 
     def load_and_preprocess_image(path):
         image = tf.io.read_file(path)
-        image = tf.image.decode_image(image, channels=1, expand_animations=False)  # Set channels=1 for grayscale
-        image.set_shape([None, None, 1])  # Explicit shape: height x width x 1
+        image = tf.image.decode_image(image, channels=1, expand_animations=False)
+        image.set_shape([None, None, 1])
         image = tf.image.resize(image, [1024, 1024])
         image = tf.cast(image, tf.float32) / 255.0
         return image
-
 
     dataset = tf.data.Dataset.from_tensor_slices(image_paths)
     dataset = dataset.map(load_and_preprocess_image, num_parallel_calls=tf.data.AUTOTUNE)
@@ -166,60 +170,82 @@ def train_default(learning_rate=1e-4, batch_size=32, epochs=10, validation_split
 
     train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
     val_dataset = val_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    # Define optimizer and loss
+
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    loss_fn = tf.keras.losses.MeanSquaredError()
-    
-    # Compile the model
-    model.compile(optimizer=optimizer, loss=loss_fn)
-    
-    # Training history
-    history = {
-        'loss': [],
-        'val_loss': []
-    }
-    
-    # Training loop
+    mse_loss_fn = tf.keras.losses.MeanSquaredError()
+
+    def combined_loss(y_true, y_pred):
+        mse_loss = mse_loss_fn(y_true, y_pred)
+        # SSIM expects values in [0, 1]; ensure inputs are in range
+        ssim_val = tf.reduce_mean(tf.image.ssim(y_true, y_pred, max_val=1.0))
+        ssim_loss = 1.0 - ssim_val  # Convert similarity to loss
+        return (1 - ssim_weight) * mse_loss + ssim_weight * ssim_loss
+
+    model.compile(optimizer=optimizer, loss=combined_loss)
+
+    history = {'loss': [], 'val_loss': [], 'mse_loss' : [], 'val_mse_loss': [], 'ssim_loss': [], 'val_ssim_loss': []}
     for epoch in range(epochs):
+        if stop_training:
+            print("Training stopped early.")
+            break
+
         print(f"\nEpoch {epoch + 1}/{epochs}")
-        
-        # Training
         train_loss = 0
+        train_mse_loss = 0
+        train_ssim_loss = 0
         num_batches = 0
         for batch in train_dataset:
             with tf.GradientTape() as tape:
                 reconstructed = model(batch, training=True)
-                loss = loss_fn(batch, reconstructed)
-            
+                mse_loss = mse_loss_fn(batch, reconstructed)
+                ssim_val = tf.reduce_mean(tf.image.ssim(batch, reconstructed, max_val=1.0))
+                ssim_loss = 1.0 - ssim_val
+                loss = (1 - ssim_weight) * mse_loss + ssim_weight * ssim_loss
             gradients = tape.gradient(loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-            
             train_loss += loss
+            train_mse_loss += mse_loss
+            train_ssim_loss += ssim_loss
             num_batches += 1
-        
+
         train_loss /= num_batches
-        
-        # Validation
+        train_mse_loss /= num_batches
+        train_ssim_loss /= num_batches
+
         val_loss = 0
+        val_mse_loss = 0
+        val_ssim_loss = 0
         num_val_batches = 0
         for batch in val_dataset:
             reconstructed = model(batch, training=False)
-            loss = loss_fn(batch, reconstructed)
+            mse_loss = mse_loss_fn(batch, reconstructed)
+            ssim_val = tf.reduce_mean(tf.image.ssim(batch, reconstructed, max_val=1.0))
+            ssim_loss = 1.0 - ssim_val
+            loss = (1 - ssim_weight) * mse_loss + ssim_weight * ssim_loss
             val_loss += loss
+            val_mse_loss += mse_loss
+            val_ssim_loss += ssim_loss
             num_val_batches += 1
-        
+
         val_loss /= num_val_batches
-        
-        # Store history
+        val_mse_loss /= num_val_batches
+        val_ssim_loss /= num_val_batches
+
         history['loss'].append(float(train_loss))
         history['val_loss'].append(float(val_loss))
-        
-        # Print progress
-        print(f"Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f}")
-    
+        history['mse_loss'].append(float(train_mse_loss))
+        history['val_mse_loss'].append(float(val_mse_loss))
+        history['ssim_loss'].append(float(train_ssim_loss))
+        history['val_ssim_loss'].append(float(val_ssim_loss))
+        print(f"Train Loss: {train_loss:.4f} (MSE: {train_mse_loss:.4f}, SSIM: {train_ssim_loss:.4f}) - "
+              f"Val Loss: {val_loss:.4f} (MSE: {val_mse_loss:.4f}, SSIM: {val_ssim_loss:.4f})")
+
+    model_save_path = "trained_model"
+    dummy_input = tf.random.normal([1, 1024, 1024, 1])
+    _ = model(dummy_input)  # Triggers model building
+    model.save(model_save_path)
     return model, history
 
-stop_training = False
 
 def listen_for_stop_key():
     global stop_training
@@ -243,7 +269,7 @@ def listen_for_stop_key():
                     print("\nStopping training early...")
                     break
 
-def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=4, validation_split=0.2):
+def train_default_GPUd(learning_rate=1e-4, batch_size=4, epochs=1, validation_split=0.2):
     global stop_training
     stop_training = False
     threading.Thread(target=listen_for_stop_key, daemon=True).start()
@@ -278,6 +304,7 @@ def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=4, validation_spl
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
     loss_fn = tf.keras.losses.MeanSquaredError()
+    
     model.compile(optimizer=optimizer, loss=loss_fn)
 
     history = {'loss': [], 'val_loss': []}
