@@ -6,11 +6,6 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import threading
-import time
-import platform
-import sys
-import tf2onnx
 
 # Statics
 data_dir = os.path.abspath("../data/processed")
@@ -69,7 +64,6 @@ class CNNAutoencoderADModel(tf.keras.Model):
             layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same')  # Output layer with same size as input
         ])
 
-    
     def call(self,x):
         """ inference """
         encoded = self.encoder(x)
@@ -86,62 +80,7 @@ def test_output_shape():
     print(f"Encoded shape: {encoded_output.shape}")
     print(f"Decoded shape: {decoded_output.shape}")
 
-def ssim_metric(y_true, y_pred):
-    """ Function to track the structural similarity index during training """
-    # Results are between -1 and 1 the higher the better
-    return tf.image.ssim(y_true, y_pred, max_val=1.0)
-
-def psnr_metric(y_true, y_pred):
-    """ Function to track the precision recall curve during training """
-    # Results are in db -> Higher values mean better reconstruction
-    return tf.image.psnr(y_true, y_pred, max_val=1.0)
-
-def train_model():
-    """ Funciton to train/retrain the model based on the data provided in the data directory """
-    # Create Model
-    model = CNNAutoencoderADModel()
-
-    # Load Training Data
-    image_paths = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
-    if not image_paths:
-        raise ValueError(f"No images found in {data_dir}!")
-
-    df = pd.DataFrame({"filename": image_paths})
-
-    datagen = ImageDataGenerator(rescale=1./255)
-
-    train_generator = datagen.flow_from_dataframe(
-        dataframe=df,
-        x_col="filename",
-        target_size=(1024, 1024),
-        color_mode="grayscale",
-        batch_size=32,
-        class_mode=None,
-        shuffle=True
-    )
-    
-    for i in range(5):
-        batch = next(train_generator)  # this will get the next batch
-        # Check if the batch is correct
-        print(f"Batch {i}: min = {batch[0].min()}, max = {batch[0].max()}")
-
-    batch = next(iter(train_generator))  # Get a sample batch
-    print(f"Batch shape: {batch.shape}")  # Should be (batch_size, 1024, 1024, 1)
-    steps_per_epoch = len(train_generator)
-    print(f"Steps per epoch: {steps_per_epoch}") 
-    # Define the training setup
-    model.compile(optimizer='adam', 
-              loss='mse',  
-              metrics=['mae', psnr_metric, ssim_metric])
-    print("Batch contains None:", np.any(batch == None))  # Should be False
-    print("Batch min:", np.min(batch), "Batch max:", np.max(batch)) 
-    model.build(input_shape=(None, 1024, 1024, 1))
-    model.summary()
-    # Fit the model
-    model.fit(train_generator, epochs=10,steps_per_epoch=len(train_generator))
-
 def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=5, validation_split=0.2, ssim_weight=0.5):
-    stop_training = False
 
     tf.config.threading.set_intra_op_parallelism_threads(6)
 
@@ -183,10 +122,7 @@ def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=5, validation_spl
 
     history = {'loss': [], 'val_loss': [], 'mse_loss' : [], 'val_mse_loss': [], 'ssim_loss': [], 'val_ssim_loss': []}
     for epoch in range(epochs):
-        if stop_training:
-            print("Training stopped early.")
-            break
-
+       
         print(f"\nEpoch {epoch + 1}/{epochs}")
         train_loss = 0
         train_mse_loss = 0
@@ -243,29 +179,5 @@ def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=5, validation_spl
     _ = model(dummy_input)
     model.save(model_save_path)
     return model, history
-
-
-def listen_for_stop_key():
-    global stop_training
-    if platform.system() == "Windows":
-        import msvcrt
-        while not stop_training:
-            if msvcrt.kbhit():
-                key = msvcrt.getch()
-                if key.lower() == b's':
-                    stop_training = True
-                    print("\nStopping training early...")
-                    break
-            time.sleep(0.1)
-    else:
-        import select
-        while not stop_training:
-            if select.select([sys.stdin], [], [], 0.1)[0]:
-                key = sys.stdin.read(1)
-                if key.lower() == 's':
-                    stop_training = True
-                    print("\nStopping training early...")
-                    break
-
 
 train_default_GPU()
