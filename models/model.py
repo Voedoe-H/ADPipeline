@@ -6,6 +6,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 # Statics
 data_dir = os.path.abspath("../data/processed")
@@ -80,7 +81,7 @@ def test_output_shape():
     print(f"Encoded shape: {encoded_output.shape}")
     print(f"Decoded shape: {decoded_output.shape}")
 
-def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=5, validation_split=0.2, ssim_weight=0.5):
+def train_default_GPUK(learning_rate=1e-4, batch_size=4, epochs=5, validation_split=0.2, ssim_weight=0.5):
 
     tf.config.threading.set_intra_op_parallelism_threads(6)
 
@@ -179,5 +180,75 @@ def train_default_GPU(learning_rate=1e-4, batch_size=4, epochs=5, validation_spl
     _ = model(dummy_input)
     model.save(model_save_path)
     return model, history
+
+
+def train_default_GPU(learning_rate=1e-4, batch_size=32, epochs=5, validation_split=0.2, ssim_weight=0.5):
+    # Optimize threading for GPU training and multitasking
+    tf.config.threading.set_intra_op_parallelism_threads(2)  # For data pipeline/I/O
+    tf.config.threading.set_inter_op_parallelism_threads(2)  # For parallel ops
+    tf.debugging.set_log_device_placement(True)  # Log GPU usage (remove after testing)
+
+    # Initialize model
+    model = CNNAutoencoderADModel()
+
+    # Load image paths
+    image_paths = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
+    if not image_paths:
+        raise ValueError(f"No images found in {data_dir}!")
+
+    # Image preprocessing
+    def load_and_preprocess_image(path):
+        image = tf.io.read_file(path)
+        image = tf.image.decode_image(image, channels=1, expand_animations=False)
+        image.set_shape([None, None, 1])
+        image = tf.image.resize(image, [1024, 1024])
+        image = tf.cast(image, tf.float32) / 255.0
+        return image, image  # Autoencoder: input = target
+
+    # Create dataset
+    dataset = tf.data.Dataset.from_tensor_slices(image_paths)
+    dataset = dataset.map(load_and_preprocess_image, num_parallel_calls=tf.data.AUTOTUNE)
+    dataset_size = len(image_paths)
+    val_size = int(dataset_size * validation_split)
+    train_size = dataset_size - val_size
+
+    train_dataset = dataset.take(train_size).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    val_dataset = dataset.skip(train_size).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+    # Define loss function
+    mse_loss_fn = tf.keras.losses.MeanSquaredError()
+
+    def combined_loss(y_true, y_pred):
+        mse_loss = mse_loss_fn(y_true, y_pred)
+        ssim_val = tf.reduce_mean(tf.image.ssim(y_true, y_pred, max_val=1.0))
+        ssim_loss = 1.0 - ssim_val
+        return (1 - ssim_weight) * mse_loss + ssim_weight * ssim_loss
+
+    # Compile model
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer, loss=combined_loss, metrics=[mse_loss_fn, 'mae'])
+
+    # Train with model.fit for GPU efficiency
+    history = model.fit(
+        train_dataset,
+        validation_data=val_dataset,
+        epochs=epochs,
+        verbose=1,
+        callbacks=[
+            tf.keras.callbacks.LambdaCallback(
+                on_epoch_end=lambda epoch, logs: print(
+                    f"SSIM Loss: {1.0 - tf.reduce_mean(tf.image.ssim(model.predict(train_dataset.take(1))[0], next(iter(train_dataset))[0], max_val=1.0)):.4f}, "
+                    f"Val SSIM Loss: {1.0 - tf.reduce_mean(tf.image.ssim(model.predict(val_dataset.take(1))[0], next(iter(val_dataset))[0], max_val=1.0)):.4f}"
+                )
+            )
+        ]
+    )
+
+    # Save model
+    model_save_path = "trained_model"
+    model.save(model_save_path)
+
+    return model, history
+
 
 train_default_GPU()
