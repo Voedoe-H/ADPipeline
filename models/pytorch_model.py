@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torchvision.models as models
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
@@ -44,6 +45,14 @@ class AELoss(nn.Module):
         mse_loss = self.mse(input,target)
         ssim_loss = 1 - ssim(input, target, data_range=1.0,size_average=True)
         return (1-self.alpha) * mse_loss + self.alpha * ssim_loss
+
+class ADEncoderResnet(nn.Module):
+    
+    def __init__(self):
+        super(ADEncoderResnet,self).__init__()
+        resnet = models.resnet18(pretrained=True)
+        modules = list(resnet.children())[:-2]
+        self.encoder = nn.Sequential(*modules)
 
 class ADEncoder(nn.Module):
 
@@ -162,6 +171,21 @@ class ADEncoder(nn.Module):
         x = self.decoderConv5(x)
         return x
 
+    def forward_(self,x):
+        e1 = self.conv1(x)   
+        e2 = self.conv2(e1)  
+        e3 = self.conv3(e2) 
+        e4 = self.conv4(e3)
+        e5 = self.conv5(e4)
+
+        d1 = self.decoderConv1(e5) + e4
+        d2 = self.decoderConv2(d1) + e3
+        d3 = self.decoderConv3(d2) + e2
+        d4 = self.decoderConv4(d3) + e1
+        out = self.decoderConv5(d4)
+
+        return out
+
     def CPU_training(self):
         """ Function to train the model defined in this class specifically running on a CPU, e.g. mac hardware without cuda support """
         device = torch.device("cpu")
@@ -226,7 +250,7 @@ class ADEncoder(nn.Module):
 
         model.train()
 
-        num_epochs = 10
+        num_epochs = 1
 
         for epoch in range(num_epochs):
             print(f"Epoch: {epoch}")
@@ -311,6 +335,7 @@ def test_onnx_model(onnx_model_path, image_path):
 if __name__ == "__main__":
     #model = ADEncoder()
     #model.CPU_training()
-    #model = ADEncoder()
-    #model.GPU_training()
-    test_onnx_model("pytorchmodel.onnx", "../data/processed/aug_0_1.jpeg")
+    model = ADEncoder()
+    model.GPU_training()
+    #test_onnx_model("pytorchmodel.onnx", "../data/processed/aug_0_1.jpeg")
+
