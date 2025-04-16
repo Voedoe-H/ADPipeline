@@ -45,7 +45,6 @@ class AELoss(nn.Module):
         ssim_loss = 1 - ssim(input, target, data_range=1.0,size_average=True)
         return (1-self.alpha) * mse_loss + self.alpha * ssim_loss
 
-
 class ADEncoder(nn.Module):
 
     def __init__(self):
@@ -175,7 +174,7 @@ class ADEncoder(nn.Module):
 
         model.train()
 
-        num_epochs = 20
+        num_epochs = 1
 
         for epoch in range(num_epochs):
             print(f"Epoch: {epoch}")
@@ -216,7 +215,55 @@ class ADEncoder(nn.Module):
 
     def GPU_training(self):
         """ Function to train the model defined in this calss specifically running on any hardware that has access to an nvidia GPU and with that to CUDA"""
-        device = torch.device("cuda:0")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Device used:{device}")
+        model = self.to(device)
+        dataset = GoodScrews()
+        subset = torch.utils.data.Subset(dataset, range(200))
+        dataloader = DataLoader(subset, batch_size=20, shuffle=True,num_workers=8)
+        criterion = AELoss()
+        optimizer = torch.optim.Adam(model.parameters(),lr=1e-4)
+
+        model.train()
+
+        num_epochs = 10
+
+        for epoch in range(num_epochs):
+            print(f"Epoch: {epoch}")
+            running_loss = 0.0
+            pbar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
+
+            for images, _ in pbar:
+                images = images.to(device)
+
+                optimizer.zero_grad()
+                outputs = model(images)
+                loss = criterion(outputs,images)
+                loss.backward()
+                optimizer.step()
+
+                running_loss += loss.item()
+                pbar.set_postfix({"Batch Loss": loss.item()})
+            
+            print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(dataloader):.4f}")
+        
+        dummy_input = torch.randn(1,1,1024,1024).to(device)
+
+        model.eval()
+        torch.onnx.export(
+            model,
+            dummy_input,
+            "pytorchmodel.onnx",
+            export_params=True,
+            opset_version=11,
+            do_constant_folding=True,
+            input_names=["input"],
+            output_names=["output"],
+            dynamic_axes={
+                "input" : {0 : "batch_size"},
+                "output" : {0 : "batch_size"}
+            }
+        )
 
 
 def shape_check():
@@ -262,6 +309,8 @@ def test_onnx_model(onnx_model_path, image_path):
 
 
 if __name__ == "__main__":
-    model = ADEncoder()
-    model.CPU_training()
-    #test_onnx_model("pytorchmodel.onnx", "../data/processed/aug_0_9992.jpeg")
+    #model = ADEncoder()
+    #model.CPU_training()
+    #model = ADEncoder()
+    #model.GPU_training()
+    test_onnx_model("pytorchmodel.onnx", "../data/processed/aug_0_1.jpeg")
