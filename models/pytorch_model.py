@@ -7,7 +7,8 @@ import os
 import matplotlib.pyplot as plt
 from pytorch_msssim import ssim
 from tqdm import tqdm
-
+import onnxruntime as ort
+import numpy as np
 
 class GoodScrews(Dataset):
     
@@ -165,16 +166,16 @@ class ADEncoder(nn.Module):
     def CPU_training(self):
         """ Function to train the model defined in this class specifically running on a CPU, e.g. mac hardware without cuda support """
         device = torch.device("cpu")
-        model = ADEncoder().to(device)
+        model = self.to(device)
         dataset = GoodScrews()
-        subset = torch.utils.data.Subset(dataset, range(100))
-        dataloader = DataLoader(subset, batch_size=20, shuffle=True,num_workers=4)
+        subset = torch.utils.data.Subset(dataset, range(200))
+        dataloader = DataLoader(subset, batch_size=20, shuffle=True,num_workers=8)
         criterion = AELoss()
         optimizer = torch.optim.Adam(model.parameters(),lr=1e-4)
 
         model.train()
 
-        num_epochs = 2
+        num_epochs = 20
 
         for epoch in range(num_epochs):
             print(f"Epoch: {epoch}")
@@ -194,6 +195,24 @@ class ADEncoder(nn.Module):
                 pbar.set_postfix({"Batch Loss": loss.item()})
             
             print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(dataloader):.4f}")
+        
+        dummy_input = torch.randn(1,1,1024,1024)
+
+        model.eval()
+        torch.onnx.export(
+            model,
+            dummy_input,
+            "pytorchmodel.onnx",
+            export_params=True,
+            opset_version=11,
+            do_constant_folding=True,
+            input_names=["input"],
+            output_names=["output"],
+            dynamic_axes={
+                "input" : {0 : "batch_size"},
+                "output" : {0 : "batch_size"}
+            }
+        )
 
     def GPU_training(self):
         """ Function to train the model defined in this calss specifically running on any hardware that has access to an nvidia GPU and with that to CUDA"""
@@ -215,5 +234,34 @@ def shape_check():
     output = model.forward(x)
     print(output.shape)
 
-model = ADEncoder()
-model.CPU_training()
+def test_onnx_model(onnx_model_path, image_path):
+    image = Image.open(image_path).convert("L")
+    transform = transforms.Compose([
+        transforms.Resize((1024, 1024)),
+        transforms.ToTensor(),  # output shape: [1, H, W]
+        transforms.Normalize(mean=[0.5], std=[0.5])
+    ])
+    input_tensor = transform(image).unsqueeze(0).numpy()  # shape: [1, 1, H, W]
+
+    session = ort.InferenceSession(onnx_model_path)
+    input_name = session.get_inputs()[0].name
+    output_name = session.get_outputs()[0].name
+    output = session.run([output_name], {input_name: input_tensor})[0]
+
+    print("Model output shape:", output.shape)
+
+    output_tensor = torch.tensor(output).squeeze()  # to shape [H, W]
+
+    output_image = output_tensor.numpy()
+    output_image = np.clip((output_image * 0.5 + 0.5), 0, 1)
+
+    plt.imshow(output_image, cmap='gray')
+    plt.title("Model Output")
+    plt.axis('off')
+    plt.show()
+
+
+if __name__ == "__main__":
+    model = ADEncoder()
+    model.CPU_training()
+    #test_onnx_model("pytorchmodel.onnx", "../data/processed/aug_0_9992.jpeg")

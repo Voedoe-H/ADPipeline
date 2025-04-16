@@ -4,3 +4,4 @@
 /data/screw
 /models/trained_model
 models/model.onnx
+models/pytorchmodel.onnx
