@@ -159,13 +159,20 @@ class ADEncoder(nn.Module):
 
         # Encoder Forward
         x = self.conv1(x)
+        print(f"Shape after first encoder convolution:{x.shape}")
         x = self.conv2(x)
+        print(f"Shape after second encoder convolution:{x.shape}")
         x = self.conv3(x)
+        print(f"Shape after third encoder convolution:{x.shape}")
         x = self.conv4(x)
+        print(f"Shape after fourth encoder convolution:{x.shape}")
         x = self.conv5(x)
+        print(f"Shape after fith and final encoder convolution:{x.shape}")
         # Decoder Forward
         x = self.decoderConv1(x)
+        print(f"Shape after first decoder transpose convolution:{x.shape}")
         x = self.decoderConv2(x)
+        print()
         x = self.decoderConv3(x)
         x = self.decoderConv4(x)
         x = self.decoderConv5(x)
@@ -290,6 +297,160 @@ class ADEncoder(nn.Module):
         )
 
 
+class ADEncoder_v2(nn.Module):
+
+    def __init__(self):
+        super(ADEncoder_v2,self).__init__()
+
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_channels=1,
+                      out_channels=32,
+                      kernel_size=3,
+                      stride=2,
+                      padding=0),
+            nn.BatchNorm2d(32),
+            nn.ReLU())
+
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(in_channels=32,
+                      out_channels=64,
+                      kernel_size=3,
+                      stride=2,
+                      padding=0),
+            nn.BatchNorm2d(64),
+            nn.ReLU())
+        
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(in_channels=64,
+                      out_channels=128,
+                      kernel_size=3,
+                      stride=2,
+                      padding=0),
+            nn.BatchNorm2d(128),
+            nn.ReLU())
+
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(in_channels=128,
+                      out_channels=256,
+                      kernel_size=3,
+                      stride=2,
+                      padding=0),
+            nn.BatchNorm2d(256),
+            nn.ReLU())
+
+        self.decoderConv2 = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=256,
+                               out_channels=128,
+                               kernel_size=4,
+                               stride=2,
+                               padding=1,
+                               output_padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU())
+        
+        self.decoderConv3 = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=256,
+                               out_channels=64,
+                               kernel_size=3,
+                               stride=2,
+                               padding=1,
+                               output_padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU())
+
+        self.decoderConv4 = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=128,
+                               out_channels=32,
+                               kernel_size=3,
+                               stride=2,
+                               padding=1,
+                               output_padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU())
+
+        self.decoderConv5 = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=64,
+                               out_channels=1,
+                               kernel_size=11,
+                               stride=2,
+                               padding=1,
+                               output_padding=1),
+            nn.Sigmoid())
+
+    def forward(self,x):
+        # Encoder Forward
+        x1 = self.conv1(x)
+        x2 = self.conv2(x1)
+        x3 = self.conv3(x2)
+        x4 = self.conv4(x3)
+        # Decoder Forward
+
+        d2 = self.decoderConv2(x4)
+        d2 = torch.cat([d2,x3],dim=1)
+        d3 = self.decoderConv3(d2)
+        x2_cropped = x2[:,:, :254, :254]
+        d3 = torch.cat([d3,x2_cropped],dim=1)
+        d4 = self.decoderConv4(d3)
+        x1_cropped = x1[:,:, :508,:508]
+        d4 = torch.cat([d4,x1_cropped],dim=1)
+        out = self.decoderConv5(d4)
+
+        return out
+
+    def shape_check(self):
+        x = torch.randn(1,1,1024,1024)
+        y = self.forward(x)
+        print(y.shape)
+
+    def CPU_training(self):
+        device = torch.device("cpu")
+        self.to(device)
+        dataset = GoodScrews()
+        subset = torch.utils.data.Subset(dataset,range(200))
+        dataloader = DataLoader(subset, batch_size=20, shuffle=True, num_workers=8)
+        criterion = AELoss()
+        optimizer = torch.optim.Adam(self.parameters(),lr=1e-4)
+        
+        self.train()
+
+        num_epochs = 20
+
+        for epoch in range(num_epochs):
+            running_loss = 0.0
+            pbar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
+
+            for images, _ in pbar:
+                images = images.to(device)
+                optimizer.zero_grad()
+                outputs = self(images)
+                loss = criterion(outputs,images)
+                loss.backward()
+                optimizer.step()
+
+                running_loss += loss.item()
+                pbar.set_postfix({"Batch Loss": loss.item()})
+            
+            print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(dataloader):.4f}")
+        
+        dummy_input = torch.randn(1,1,1024,1024)
+
+        self.eval()
+        torch.onnx.export(
+            self,
+            dummy_input,
+            "pytorchmodel_v2.onnx",
+            export_params=True,
+            opset_version=11,
+            do_constant_folding=True,
+            input_names=["input"],
+            output_names=["output"],
+            dynamic_axes={
+                "input" : {0 : "batch_size"},
+                "output" : {0 : "batch_size"}
+            }
+        )
+
+
 def shape_check():
     """ Testing function ignore """
     # Transpose Dimension Computation
@@ -333,9 +494,11 @@ def test_onnx_model(onnx_model_path, image_path):
 
 
 if __name__ == "__main__":
-    #model = ADEncoder()
+    model = ADEncoder_v2()
+    model.CPU_training()
+
     #model.CPU_training()
     #model = ADEncoder()
     #model.GPU_training()
-    test_onnx_model("pytorchmodel.onnx", "../data/processed/aug_0_1.jpeg")
+    #test_onnx_model("pytorchmodel_v2.onnx", "../data/processed/aug_0_9958.jpeg")
 
