@@ -250,7 +250,7 @@ class ADEncoder(nn.Module):
 
         model.train()
 
-        num_epochs = 1
+        num_epochs = 50
 
         for epoch in range(num_epochs):
             print(f"Epoch: {epoch}")
@@ -335,7 +335,7 @@ def test_onnx_model(onnx_model_path, image_path):
 if __name__ == "__main__":
     #model = ADEncoder()
     #model.CPU_training()
-    model = ADEncoder()
-    model.GPU_training()
-    #test_onnx_model("pytorchmodel.onnx", "../data/processed/aug_0_1.jpeg")
+    #model = ADEncoder()
+    #model.GPU_training()
+    test_onnx_model("pytorchmodel.onnx", "../data/processed/aug_0_1.jpeg")
 
