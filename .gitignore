@@ -5,3 +5,4 @@
 /models/trained_model
 models/model.onnx
 models/pytorchmodel.onnx
+models/pytorchmodel_v2.onnx

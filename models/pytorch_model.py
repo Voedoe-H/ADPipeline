@@ -20,6 +20,7 @@ class GoodScrews(Dataset):
         
         self.transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
+            #normierung
             transforms.ToTensor(),
         ])
 
@@ -537,7 +538,7 @@ class ADEncoder_v2_1(nn.Module):
         x4 = self.conv4(x3)
         # Decoder Forward
 
-        d2 = self.decoderConv2(x4) + x3
+        d2 = self.decoderConv2(x4)
         #d2 = torch.cat([d2,x3],dim=1)
         d3 = self.decoderConv3(d2)
         x2_cropped = x2[:,:, :254, :254]
@@ -564,7 +565,7 @@ class ADEncoder_v2_1(nn.Module):
         
         self.train()
 
-        num_epochs = 50
+        num_epochs = 1
 
         for epoch in range(num_epochs):
             running_loss = 0.0
@@ -648,8 +649,9 @@ if __name__ == "__main__":
     model = ADEncoder_v2_1()
     model.CPU_training()
 
+
     #model.CPU_training()
     #model = ADEncoder()
     #model.GPU_training()
-    #test_onnx_model("pytorchmodel_v2.onnx", "../data/processed/aug_0_1.jpeg")
+    test_onnx_model("pytorchmodel_v2.onnx", "../data/processed/aug_0_1.jpeg")
     #test_onnx_model("pytorchmodel_v2.onnx", "../data/screw/test/thread_side/001.png")
