@@ -204,9 +204,17 @@ def hundretmodeltest():
     model_name = "pytorchmodel_v2.onnx"
     dir_good = os.path.abspath("../data/screw/test/good")
     dir_bad = os.path.abspath("../data/screw/test/manipulated_front")
+    dir_scrath_head = os.path.abspath("../data/screw/test/scratch_head")
+    dir_scratch_neck = os.path.abspath("../data/screw/test/scratch_neck")
+    dir_thread_side = os.path.abspath("../data/screw/test/thread_side")
+    dir_thread_top = os.path.abspath("../data/screw/test/thread_top")
 
     good_paths = [os.path.join(dir_good, f) for f in os.listdir(dir_good) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
     bad_paths = [os.path.join(dir_bad, f) for f in os.listdir(dir_bad) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+    scratch_head_paths = [os.path.join(dir_scrath_head, f) for f in os.listdir(dir_scrath_head) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+    scratch_neck_paths = [os.path.join(dir_scratch_neck, f) for f in os.listdir(dir_scratch_neck) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+    thread_side_paths = [os.path.join(dir_thread_side, f) for f in os.listdir(dir_thread_side) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+    thread_top_paths = [os.path.join(dir_thread_top, f) for f in os.listdir(dir_thread_top) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
 
     session = ort.InferenceSession(model_name)
     input_name = session.get_inputs()[0].name
@@ -214,6 +222,10 @@ def hundretmodeltest():
 
     good_errors = []
     bad_errors = []
+    scratch_head_errors = []
+    scratch_neck_errors = []
+    thread_side_errors = []
+    thread_top_errors = []
 
     for path in good_paths:
         img = preprocess_image(path)
@@ -227,25 +239,43 @@ def hundretmodeltest():
         error = compute_per_image_error(img, rec)
         bad_errors.append(error[0])
 
+    for path in scratch_head_paths:
+        img = preprocess_image(path)
+        rec = session.run([output_name], {input_name: img})[0]
+        error = compute_per_image_error(img, rec)
+        scratch_head_errors.append(error[0])
 
-    plot_histograms(good_errors,bad_errors)
-    # Labels: 0 = good, 1 = bad
-    all_errors = np.concatenate([good_errors, bad_errors])
-    all_labels = np.concatenate([np.zeros(len(good_errors)), np.ones(len(bad_errors))])
+    for path in scratch_neck_paths:
+        img = preprocess_image(path)
+        rec = session.run([output_name], {input_name: img})[0]
+        error = compute_per_image_error(img, rec)
+        scratch_neck_errors.append(error[0])
 
-    fpr, tpr, thresholds = roc_curve(all_labels, all_errors)
-    roc_auc = auc(fpr, tpr)
+    for path in thread_side_paths:
+        img = preprocess_image(path)
+        rec = session.run([output_name], {input_name: img})[0]
+        error = compute_per_image_error(img, rec)
+        thread_side_errors.append(error[0])
 
-    plt.figure(figsize=(6, 6))
-    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.2f}")
-    plt.plot([0, 1], [0, 1], "k--")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve")
-    plt.legend(loc="lower right")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    for path in thread_top_paths:
+        img = preprocess_image(path)
+        rec = session.run([output_name], {input_name: img})[0]
+        error = compute_per_image_error(img, rec)
+        thread_top_errors.append(error[0])
+
+    def report_errors(name, errors):
+        print(f"{name} Errors - Mean: {np.mean(errors):.4f}, Std: {np.std(errors):.4f}, Min: {np.min(errors):.4f}, Max: {np.max(errors):.4f}")
+
+
+    plot_histograms(good_errors,scratch_head_errors)
+    plot_histograms(good_errors,scratch_neck_errors)
+    plot_histograms(good_errors,thread_side_errors)
+    plot_histograms(good_errors,thread_top_errors)
+    print("\n--- Per Defect Type Analysis ---")
+    report_errors("Scratch Head", scratch_head_errors)
+    report_errors("Scratch Neck", scratch_neck_errors)
+    report_errors("Thread Side", thread_side_errors)
+    report_errors("Thread Top", thread_top_errors)
     
 hundretmodeltest()
 
