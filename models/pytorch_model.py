@@ -553,8 +553,8 @@ class ADEncoder_v2_1(nn.Module):
         y = self.forward(x)
         print(y.shape)
 
-    def CPU_training(self):
-        device = torch.device("cpu")
+    def training(self):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Device used:{device}")
         self.to(device)
         dataset = GoodScrews()
@@ -584,6 +584,7 @@ class ADEncoder_v2_1(nn.Module):
             
             print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(dataloader):.4f}")
         
+        torch.save(self.state_dict(), "pretrained_model.pth")
         dummy_input = torch.randn(1,1,1024,1024).to(device)
 
         self.eval()
@@ -654,4 +655,4 @@ if __name__ == "__main__":
     #model = ADEncoder()
     #model.GPU_training()
     #test_onnx_model("pytorchmodel_v2.onnx", "../data/processed/aug_0_1.jpeg")
-    test_onnx_model("pytorchmodel_v2.onnx", "../data/raw/screw/test/thread_side/001.png")
+    test_onnx_model("pytorchmodel_v2.onnx", "../data/screw/test/thread_side/001.png")
