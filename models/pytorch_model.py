@@ -554,18 +554,18 @@ class ADEncoder_v2_1(nn.Module):
         print(y.shape)
 
     def CPU_training(self):
-        device = torch.device("cuda")
+        device = torch.device("cpu")
         print(f"Device used:{device}")
         self.to(device)
         dataset = GoodScrews()
         subset = torch.utils.data.Subset(dataset,range(200))
-        dataloader = DataLoader(subset, batch_size=20, shuffle=True, num_workers=4)
+        dataloader = DataLoader(subset, batch_size=20, shuffle=True, num_workers=8)
         criterion = AELoss()
         optimizer = torch.optim.Adam(self.parameters(),lr=1e-4)
         
         self.train()
 
-        num_epochs = 1
+        num_epochs = 100
 
         for epoch in range(num_epochs):
             running_loss = 0.0
@@ -646,12 +646,12 @@ def test_onnx_model(onnx_model_path, image_path):
 
 
 if __name__ == "__main__":
-    model = ADEncoder_v2_1()
-    model.CPU_training()
+    #model = ADEncoder_v2_1()
+    #model.CPU_training()
 
 
     #model.CPU_training()
     #model = ADEncoder()
     #model.GPU_training()
-    test_onnx_model("pytorchmodel_v2.onnx", "../data/processed/aug_0_1.jpeg")
-    #test_onnx_model("pytorchmodel_v2.onnx", "../data/screw/test/thread_side/001.png")
+    #test_onnx_model("pytorchmodel_v2.onnx", "../data/processed/aug_0_1.jpeg")
+    test_onnx_model("pytorchmodel_v2.onnx", "../data/raw/screw/test/thread_side/001.png")
