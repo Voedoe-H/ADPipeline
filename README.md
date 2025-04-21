@@ -20,7 +20,7 @@ python data/preprocess.py
 
 ## Model
 
-The model can be found in model/pytorch_model.py. Im using a simple CNN Autoencoder approach. For a loss i utilized a combination of classic MSE and SSIM loss.
+The model can be found in model/pytorch_model.py. Im using a simple CNN Autoencoder approach. For a loss i utilized a combination of classic Mean Squared Error (MSE) and Structural Similarity Index Measure (SSIM) loss.
 
 ### Model Performance
 
