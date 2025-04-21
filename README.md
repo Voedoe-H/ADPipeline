@@ -20,8 +20,20 @@ python data/preprocess.py
 
 ## Model
 
-The model can be found in model/pytorch_model.py. Im using a simple CNN Autoencoder approach. 
+The model can be found in model/pytorch_model.py. Im using a simple CNN Autoencoder approach. For a loss i utilized a combination of classic MSE and SSIM loss.
 
 ### Model Performance
 
+The performances here are with a model that was trained for only 100 epochs of the training loop defined in the model script.
+
+#### Reconstruction Error - Scratch Head
 ![Reconstruction Error - Scratch Head](docs/scratch_head_errors.png)
+
+#### Reconstruction Error - Scratch Neck
+![Reconstruction Error - Scratch Neck](docs/scratch_neck_errors.png)
+
+#### Reconstruction Error - Thread Side
+![Reconstruction Error - Thread Side](docs/thread_side_errors.png)
+
+#### Reconstruction Error - Thread Top
+![Reconstruction Error - Thread Top](docs/thread_top_errors.png)
