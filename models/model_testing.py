@@ -151,16 +151,18 @@ def test_inference():
     plt.show()
     # 0.005 boundary hypothesi
 
-def plot_histograms(good_errors, bad_errors):
+def plot_histograms(good_errors, bad_errors,figname):
     plt.figure(figsize=(10, 6))
     plt.hist(good_errors, bins=50, alpha=0.6, label='Good', color='green')
     plt.hist(bad_errors, bins=50, alpha=0.6, label='Bad', color='red')
     plt.xlabel("Reconstruction Error (MSE)")
     plt.ylabel("Frequency")
-    plt.title("Reconstruction Error Distribution")
+    plt.title(f"Reconstruction Error Distribution of {figname} (red) vs good (green)")
     plt.legend()
     plt.grid(True)
+    plt.savefig(f"../docs/{figname}.pdf",format="pdf")
     plt.show()
+    
 
 def plot_roc(good_errors, bad_errors):
     y_true = [0] * len(good_errors) + [1] * len(bad_errors)
@@ -267,10 +269,11 @@ def hundretmodeltest():
         print(f"{name} Errors - Mean: {np.mean(errors):.4f}, Std: {np.std(errors):.4f}, Min: {np.min(errors):.4f}, Max: {np.max(errors):.4f}")
 
 
-    plot_histograms(good_errors,scratch_head_errors)
-    plot_histograms(good_errors,scratch_neck_errors)
-    plot_histograms(good_errors,thread_side_errors)
-    plot_histograms(good_errors,thread_top_errors)
+    plot_histograms(good_errors,scratch_head_errors,"scratch_head_errors")
+    plot_histograms(good_errors,scratch_neck_errors,"scratch_neck_errors")
+    plot_histograms(good_errors,thread_side_errors,"thread_side_errors")
+    plot_histograms(good_errors,thread_top_errors,"thread_top_errors")
+
     print("\n--- Per Defect Type Analysis ---")
     report_errors("Scratch Head", scratch_head_errors)
     report_errors("Scratch Neck", scratch_neck_errors)
