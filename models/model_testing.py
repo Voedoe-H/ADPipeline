@@ -155,7 +155,7 @@ def plot_histograms(good_errors, bad_errors,figname):
     plt.figure(figsize=(10, 6))
     plt.hist(good_errors, bins=50, alpha=0.6, label='Good', color='green')
     plt.hist(bad_errors, bins=50, alpha=0.6, label='Bad', color='red')
-    plt.xlabel("Reconstruction Error (MSE)")
+    plt.xlabel("Reconstruction Error (MSE&SSIM)")
     plt.ylabel("Frequency")
     plt.title(f"Reconstruction Error Distribution of {figname} (red) vs good (green)")
     plt.legend()
