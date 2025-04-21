@@ -160,7 +160,7 @@ def plot_histograms(good_errors, bad_errors,figname):
     plt.title(f"Reconstruction Error Distribution of {figname} (red) vs good (green)")
     plt.legend()
     plt.grid(True)
-    plt.savefig(f"../docs/{figname}.pdf",format="pdf")
+    plt.savefig(f"../docs/{figname}.png",format="png")
     plt.show()
     
 

@@ -17,4 +17,11 @@ The preprocessing step prepares the MVTec AD dataset for model training. To run 
 ```bash
 python data/preprocess.py
 ```
-Stuff
+
+## Model
+
+The model can be found in model/pytorch_model.py. Im using a simple CNN Autoencoder approach. 
+
+### Model Performance
+
+![Reconstruction Error - Scratch Head](docs/scratch_head_errors.png)
