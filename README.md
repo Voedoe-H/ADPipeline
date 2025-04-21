@@ -16,3 +16,5 @@ The preprocessing step prepares the MVTec AD dataset for model training. To run 
 
 ```bash
 python data/preprocess.py
+```
+Stuff
