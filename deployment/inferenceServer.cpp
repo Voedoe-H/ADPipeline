@@ -16,9 +16,9 @@ void handle_inference(const httplib::Request& req, httplib::Response& res)
         }
 
         std::string image_b64 = body["image"];
+        std::string decoded_bytes = base64::from_base64(image_b64);
+        std::cout << "Image received. Byte size: " << decoded_bytes.size() << std::endl;
 
-
-        std::cout << "Req Body: " << body.dump() << std::endl;
         res.set_content("Works","text/html");
     }
     catch ( const std::exception& e)
@@ -30,7 +30,6 @@ void handle_inference(const httplib::Request& req, httplib::Response& res)
 
 int main()
 {
-    
     std::cout << "Starting Server" << std::endl;
     httplib::Server server;
 
