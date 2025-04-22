@@ -1,6 +1,7 @@
 #include "externals/httplib.h"
 #include "externals/json.hpp"
 #include "externals/base64.hpp"
+#include <opencv2/opencv.hpp>
 #include <iostream>
 
 
@@ -30,6 +31,7 @@ void handle_inference(const httplib::Request& req, httplib::Response& res)
 
 int main()
 {
+    
     std::cout << "Starting Server" << std::endl;
     httplib::Server server;
 
