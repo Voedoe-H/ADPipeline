@@ -6,3 +6,6 @@
 models/model.onnx
 models/pytorchmodel.onnx
 models/pytorchmodel_v2.onnx
+.vscode/settings.json
+.vscode/c_cpp_properties.json
+.vscode/launch.json
