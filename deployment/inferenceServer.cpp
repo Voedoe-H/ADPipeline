@@ -108,14 +108,9 @@ void handle_inference(const httplib::Request& req, httplib::Response& res)
         double error = compute_reconstruction_err(input_float, output_float);
         bool is_anomaly = error > 0.0595;
 
-        std::cout << "Reconstruciton Error: " << error << std::endl;
-        std::cout << "Is Anomaly: " << is_anomaly << std::endl;
-        //cv::imwrite("reconstructed.png", output_image);
-        //std::cout << "Saved output to reconstructed.png" << std::endl;
-        //cv::imwrite("received_image.png", img);
-        //std::cout << "Image saved as received_image.png" << std::endl;
-
-        res.set_content("Works","text/html");
+        nlohmann::json resp;
+        resp["Anomaly"] = is_anomaly;
+        res.set_content(resp.dump(),"text/html");
     }
     catch ( const std::exception& e)
     {
