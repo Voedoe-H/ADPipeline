@@ -163,26 +163,6 @@ def plot_histograms(good_errors, bad_errors,figname):
     #plt.savefig(f"../docs/{figname}.png",format="png")
     plt.show()
     
-
-def plot_roc(good_errors, bad_errors):
-    y_true = [0] * len(good_errors) + [1] * len(bad_errors)
-    y_scores = good_errors + bad_errors
-
-    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
-    roc_auc = auc(fpr, tpr)
-
-    plt.figure(figsize=(8, 6))
-    plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {roc_auc:.2f})')
-    plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('ROC Curve for Autoencoder Anomaly Detection')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-
-
 def compute_per_image_error(inputs, outputs, alpha=0.84):
     inputs = torch.tensor(inputs, dtype=torch.float32)
     outputs = torch.tensor(outputs, dtype=torch.float32)
@@ -204,12 +184,12 @@ def preprocess_image(path):
 
 def hundretmodeltest():
     model_name = "pytorchmodel_v2.onnx"
-    dir_good = os.path.abspath("../data/screw/test/good")
-    dir_bad = os.path.abspath("../data/screw/test/manipulated_front")
-    dir_scrath_head = os.path.abspath("../data/screw/test/scratch_head")
-    dir_scratch_neck = os.path.abspath("../data/screw/test/scratch_neck")
-    dir_thread_side = os.path.abspath("../data/screw/test/thread_side")
-    dir_thread_top = os.path.abspath("../data/screw/test/thread_top")
+    dir_good = os.path.abspath("../data/raw/screw/test/good")
+    dir_bad = os.path.abspath("../data/raw/screw/test/manipulated_front")
+    dir_scrath_head = os.path.abspath("../data/raw/screw/test/scratch_head")
+    dir_scratch_neck = os.path.abspath("../data/raw/screw/test/scratch_neck")
+    dir_thread_side = os.path.abspath("../data/raw/screw/test/thread_side")
+    dir_thread_top = os.path.abspath("../data/raw/screw/test/thread_top")
 
     good_paths = [os.path.join(dir_good, f) for f in os.listdir(dir_good) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
     bad_paths = [os.path.join(dir_bad, f) for f in os.listdir(dir_bad) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
@@ -279,7 +259,49 @@ def hundretmodeltest():
     report_errors("Scratch Neck", scratch_neck_errors)
     report_errors("Thread Side", thread_side_errors)
     report_errors("Thread Top", thread_top_errors)
-    
+
+    # Combine all good and defective errors
+    all_errors = (
+        good_errors
+        + scratch_head_errors
+        + scratch_neck_errors
+        + thread_side_errors
+        + thread_top_errors
+    )
+
+    # Create binary labels: 0 for good, 1 for defect
+    labels = (
+        [0] * len(good_errors)
+        + [1] * len(scratch_head_errors)
+        + [1] * len(scratch_neck_errors)
+        + [1] * len(thread_side_errors)
+        + [1] * len(thread_top_errors)
+    )
+
+    # Compute ROC curve
+    fpr, tpr, thresholds = roc_curve(labels, all_errors)
+    roc_auc = auc(fpr, tpr)
+
+    # Use Youden's J statistic to pick the best threshold
+    j_scores = tpr - fpr
+    best_idx = np.argmax(j_scores)
+    best_threshold = thresholds[best_idx]
+
+    print("\n--- ROC Analysis ---")
+    print(f"ROC AUC: {roc_auc:.4f}")
+    print(f"Optimal Threshold (Youden's J): {best_threshold:.4f}")
+
+    # Optional: Plot ROC Curve
+    plt.figure()
+    plt.plot(fpr, tpr, label=f"ROC curve (AUC = {roc_auc:.2f})")
+    plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("ROC Curve")
+    plt.legend(loc="lower right")
+    plt.grid(True)
+    plt.show()
+        
 hundretmodeltest()
 
 #convert()

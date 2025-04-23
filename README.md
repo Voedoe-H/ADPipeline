@@ -44,3 +44,8 @@ The performances here are with a model that was trained for only 100 epochs of t
 | Scratch Neck         | 0.0606     | 0.0013  | 0.0574    | 0.0630    |
 | Thread Side          | 0.0611     | 0.0018  | 0.0590    | 0.0663    |
 | Thread Top           | 0.0613     | 0.0015  | 0.0591    | 0.0646    |
+
+### ROC Analysis
+![Reconstruction Error - Thread Top](docs/ROC.png)
+
+Chosen reconstruction error threashold was 0.0595
