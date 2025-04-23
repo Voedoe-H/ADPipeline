@@ -7,6 +7,67 @@
 
 cv::dnn::Net net; 
 
+double computeMSE(const cv::Mat& input, const cv::Mat& output) 
+{
+    cv::Mat diff;
+    cv::absdiff(input, output, diff);
+    diff = diff.mul(diff);
+    return cv::mean(diff)[0];
+}
+
+double computeSSIM(const cv::Mat& img1, const cv::Mat& img2)
+{
+    const double C1 = 0.01 * 0.01;
+    const double C2 = 0.03 * 0.03;
+
+    cv::Mat I1, I2;
+    img1.convertTo(I1, CV_32F);
+    img2.convertTo(I2, CV_32F);
+
+    cv::Mat I1_2 = I1.mul(I1);        // I1^2
+    cv::Mat I2_2 = I2.mul(I2);        // I2^2
+    cv::Mat I1_I2 = I1.mul(I2);       // I1 * I2
+
+    cv::Mat mu1, mu2;
+    cv::GaussianBlur(I1, mu1, cv::Size(11, 11), 1.5);
+    cv::GaussianBlur(I2, mu2, cv::Size(11, 11), 1.5);
+
+    cv::Mat mu1_2 = mu1.mul(mu1);
+    cv::Mat mu2_2 = mu2.mul(mu2);
+    cv::Mat mu1_mu2 = mu1.mul(mu2);
+
+    cv::Mat sigma1_2, sigma2_2, sigma12;
+
+    cv::GaussianBlur(I1_2, sigma1_2, cv::Size(11, 11), 1.5);
+    sigma1_2 -= mu1_2;
+
+    cv::GaussianBlur(I2_2, sigma2_2, cv::Size(11, 11), 1.5);
+    sigma2_2 -= mu2_2;
+
+    cv::GaussianBlur(I1_I2, sigma12, cv::Size(11, 11), 1.5);
+    sigma12 -= mu1_mu2;
+
+    cv::Mat t1 = 2 * mu1_mu2 + C1;
+    cv::Mat t2 = 2 * sigma12 + C2;
+    cv::Mat t3 = t1.mul(t2);          // numerator
+
+    t1 = mu1_2 + mu2_2 + C1;
+    t2 = sigma1_2 + sigma2_2 + C2;
+    t1 = t1.mul(t2);                  // denominator
+
+    cv::Mat ssim_map;
+    cv::divide(t3, t1, ssim_map);
+    return cv::mean(ssim_map)[0];    
+}
+
+double compute_reconstruction_err(const cv::Mat& inp, const cv::Mat& out, double alpha = 0.84)
+{
+    double mse = computeMSE(inp,out);
+    double ssim = computeSSIM(inp,out);
+    double ssim_error = 1.0 - ssim;
+    return (1-alpha) * mse + alpha * ssim_error;
+}
+
 void handle_inference(const httplib::Request& req, httplib::Response& res)
 {
     try
@@ -40,8 +101,17 @@ void handle_inference(const httplib::Request& req, httplib::Response& res)
         cv::Mat output_image;
         output.convertTo(output_image, CV_8U, 255.0);
 
-        cv::imwrite("reconstructed.png", output_image);
-        std::cout << "Saved output to reconstructed.png" << std::endl;
+        cv::Mat input_float, output_float;
+        img.convertTo(input_float , CV_32F, 1.0 / 255.0);
+        output.convertTo(output_float, CV_32F, 1.0 / 255.0);
+
+        double error = compute_reconstruction_err(input_float, output_float);
+        bool is_anomaly = error > 0.0595;
+
+        std::cout << "Reconstruciton Error: " << error << std::endl;
+        std::cout << "Is Anomaly: " << is_anomaly << std::endl;
+        //cv::imwrite("reconstructed.png", output_image);
+        //std::cout << "Saved output to reconstructed.png" << std::endl;
         //cv::imwrite("received_image.png", img);
         //std::cout << "Image saved as received_image.png" << std::endl;
 
