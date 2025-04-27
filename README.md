@@ -51,7 +51,7 @@ The model is trained using a hybrid loss function combining two critical compone
     A perceptual loss that considers the structural similarity between the input and the reconstructed images. This helps the model focus not only on pixel-level accuracy but also on maintaining high-level structural features.
 
 The total loss is computed as a weighted sum of MSE and SSIM:
-    $ Total Loss = (1-\alpha) \times MSE + \alpha \times (1-SSIM) $
+    $$ Total Loss = (1-\alpha) \times MSE + \alpha \times (1-SSIM) $$
 ### Model Performance
 
 The performances here are with a model that was trained for only 100 epochs of the training loop defined in the model script.
