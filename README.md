@@ -52,11 +52,11 @@ Chosen reconstruction error threashold was 0.0595
 
 ## Deployment
 
-The trained model can be deployed as a simple REST API. This APi is implemented with a light weight http server library, with a single POST endpoint.
+The trained model can be deployed using a simple C++ HTTP server implementation. The server provides a single /infer POST endpoint for anomaly detection.
 
 ### Running the Inference Server
 
-In the deployment dir execute the following
+To build and run the server locally, follow these steps inside the deployment/ directory:
 
 ```bash
 mkdir build
@@ -65,20 +65,29 @@ cmake ..
 make
 ```
 
-Then run the server via
+Once built, start the server:
 
 ```bash
 ./InferenceServer
 ```
 
-By default, the server listens on 0.0.0.0:8080. You can modify the listen andress and port. The POST endpoint "/infer" expects the 1024x1024 image to be encoded using base64 and the bas64 string to be in a json body under the key "image". The return type is just a simple boolean value in a json under the key "Anomaly".
+By default, the server listens on 0.0.0.0:8080.
+You can modify the listening address and port inside the server source code if needed.
+
+The /infer POST endpoint expects a base64-encoded 1024x1024 image provided inside a JSON object under the key "image".
+The server responds with a simple JSON containing a boolean value under the key "Anomaly", indicating whether an anomaly was detected.
 
 ### Running the Inference Server as a Docker Container
 
-The inference server can also deployed via a Docker Container. The script to build the image is in the deployment dir. For the purpose of creating the image execute the following in the deployment dir
+Alternatively, the inference server can be deployed as a Docker container.
+To build the Docker image, execute the following inside the deployment/ directory:
 
 ```bash
 docker build -t inference-server .
 ```
 
-Then run the inference-server image
+To run the image:
+
+```bash
+docker run -p 8080:8080 inference-server
+```
