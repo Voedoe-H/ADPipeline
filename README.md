@@ -83,6 +83,9 @@ The trained model was evaluated using reconstruction error as the primary metric
 | Thread Side          | 0.0611     | 0.0018  | 0.0590    | 0.0663    |
 | Thread Top           | 0.0613     | 0.0015  | 0.0591    | 0.0646    |
 
+### Potential Improvements
+
+Future improvements could include exploring more advanced architectures (e.g., UNet) or incorporating feature-level loss functions using pretrained networks (e.g., Perceptual Loss with VGG16) to improve the model's sensitivity to finer structural anomalies. Additionally, experimenting with data augmentation or transfer learning might enhance the model's ability to generalize to different types of defects.
 
 ## Deployment
 
