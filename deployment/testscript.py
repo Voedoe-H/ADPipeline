@@ -5,8 +5,8 @@ import requests
 import os
 import cv2
 
-data_path_good = os.path.abspath("../data/raw/screw/test/good/002.png")
-data_path_bad = os.path.abspath("../data/raw/screw/test/manipulated_front/000.png")
+data_path_good = os.path.abspath("../data/screw/test/good/002.png")
+data_path_bad = os.path.abspath("../data/screw/test/manipulated_front/000.png")
 
 img = cv2.imread(data_path_good, cv2.IMREAD_GRAYSCALE)
 

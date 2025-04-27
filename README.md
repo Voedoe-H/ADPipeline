@@ -49,3 +49,18 @@ The performances here are with a model that was trained for only 100 epochs of t
 ![Reconstruction Error - Thread Top](docs/ROC.png)
 
 Chosen reconstruction error threashold was 0.0595
+
+## Deployment
+
+The trained model can be deployed as a simple REST API. This APi is implemented with a light weight http server library, with a single POST endpoint.
+
+### Running the Inference Server
+
+In the deployment dir execute the following
+
+```bash
+mkdir build
+cd build
+cmake ..
+make
+```

@@ -15,6 +15,6 @@ else()
     message(FATAL_ERROR "OpenCV not found")
 endif()
 
-add_executable(InferenceServer InferenceServer.cpp)
+add_executable(InferenceServer inferenceServer.cpp)
 
 target_link_libraries(InferenceServer ${OpenCV_LIBS})

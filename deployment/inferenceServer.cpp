@@ -145,7 +145,7 @@ int main()
         res.set_content(buf, "text/html");
     });
 
-    server.listen("127.0.0.1",8080);
+    server.listen("0.0.0.0",8080);
     
     return 0;
 }
