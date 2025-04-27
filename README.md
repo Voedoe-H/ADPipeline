@@ -24,7 +24,7 @@ python data/preprocess.py
 
 The core model is based on a Convolutional Autoencoder architecture. It consists of an encoder-decoder structure aimed at reconstructing the input image while learning efficient feature representations of normal (non-anomalous) images.
 
-* **Encoder**: 
+* **Encoder:** 
     The encoder is composed of four convolutional layers. Each layer reduces the spatial dimensions of the input image while increasing the depth (number of feature maps). The encoder extracts high-level features from the image, which will later be used for reconstruction.
     * Conv1: Convolutional layer with 32 output channels.
     * Conv2: Convolutional layer with 64 output channels.
@@ -33,9 +33,19 @@ The core model is based on a Convolutional Autoencoder architecture. It consists
     
     After each convolutional layer, a Batch Normalization layer is applied to stabilize and speed up training, followed by a ReLU activation function to introduce non-linearity.
 
+* **Decoder:**
+    The decoder consists of four transpose convolutional layers that gradually increase the spatial dimensions to match the original input size. It is designed to reconstruct the input image from the feature representations produced by the encoder.
+    * DecoderConv2: Transpose convolution with 128 output channels.
+    * DecoderConv3: Transpose convolution with 64 output channels.
+    * DecoderConv4: Transpose convolution with 32 output channels.
+    * DecoderConv5: Final layer producing the output with 1 channel (grayscale image) using a Sigmoid activation function.
 
+    The decoder uses Batch Normalization and ReLU activation to maintain stability and enhance training performance.
 
-The model can be found in model/pytorch_model.py. Im using a simple CNN Autoencoder approach. For a loss i utilized a combination of classic Mean Squared Error (MSE) and Structural Similarity Index Measure (SSIM) loss.
+### Loss Function
+The model is trained using a hybrid loss function combining two critical components:
+1. **Mean Squared Error(MSE):**
+    Measures pixel-wise errors between the reconstructed and original images.
 
 ### Model Performance
 
