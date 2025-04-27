@@ -64,3 +64,21 @@ cd build
 cmake ..
 make
 ```
+
+Then run the server via
+
+```bash
+./InferenceServer
+```
+
+By default, the server listens on 0.0.0.0:8080. You can modify the listen andress and port. The POST endpoint "/infer" expects the 1024x1024 image to be encoded using base64 and the bas64 string to be in a json body under the key "image". The return type is just a simple boolean value in a json under the key "Anomaly".
+
+### Running the Inference Server as a Docker Container
+
+The inference server can also deployed via a Docker Container. The script to build the image is in the deployment dir. For the purpose of creating the image execute the following in the deployment dir
+
+```bash
+docker build -t inference-server .
+```
+
+Then run the inference-server image
