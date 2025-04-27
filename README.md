@@ -1,4 +1,4 @@
-# Anomaly Detection with MVTec AD Dataset
+# InsightAD: Anomaly Detection with MVTec AD Dataset
 
 This repository provides a full pipeline for anomaly detection using the [MVTec Anomaly Detection (AD)](https://www.kaggle.com/datasets/ipythonx/mvtec-ad) dataset. The project covers everything from data preprocessing, model training/testing with PyTorch, to plans for deployment via a REST API in a Docker container.
 
