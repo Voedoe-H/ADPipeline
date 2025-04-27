@@ -26,7 +26,7 @@ python data/preprocess.py
     * Conv3: Convolutional layer with 128 output channels.
     * Conv4: Convolutional layer with 256 output channels.
     
-After each convolutional layer, a Batch Normalization layer is applied to stabilize and speed up training, followed by a ReLU activation function to introduce non-linearity.
+    After each convolutional layer, a Batch Normalization layer is applied to stabilize and speed up training, followed by a ReLU activation function to introduce non-linearity.
 
 ### Architecture Overview
 
