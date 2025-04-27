@@ -10,10 +10,11 @@ find_package(OpenCV REQUIRED)
 
 if(OpenCV_FOUND)
     include_directories(${OpenCV_INCLUDE_DIRS})
-    link_libraries(${OpenCV_LIBS})
     message(STATUS "OpenCV found: ${OpenCV_VERSION}")
 else()
     message(FATAL_ERROR "OpenCV not found")
 endif()
 
 add_executable(InferenceServer InferenceServer.cpp)
+
+target_link_libraries(InferenceServer ${OpenCV_LIBS})
