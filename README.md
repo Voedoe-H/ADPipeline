@@ -19,6 +19,11 @@ python data/preprocess.py
 ```
 
 ## Model
+
+### Architecture Overview
+
+The core model is based on a Convolutional Autoencoder architecture. It consists of an encoder-decoder structure aimed at reconstructing the input image while learning efficient feature representations of normal (non-anomalous) images.
+
 * **Encoder**: 
     The encoder is composed of four convolutional layers. Each layer reduces the spatial dimensions of the input image while increasing the depth (number of feature maps). The encoder extracts high-level features from the image, which will later be used for reconstruction.
     * Conv1: Convolutional layer with 32 output channels.
@@ -28,9 +33,6 @@ python data/preprocess.py
     
     After each convolutional layer, a Batch Normalization layer is applied to stabilize and speed up training, followed by a ReLU activation function to introduce non-linearity.
 
-### Architecture Overview
-
-The core model is based on a Convolutional Autoencoder architecture. It consists of an encoder-decoder structure aimed at reconstructing the input image while learning efficient feature representations of normal (non-anomalous) images.
 
 
 The model can be found in model/pytorch_model.py. Im using a simple CNN Autoencoder approach. For a loss i utilized a combination of classic Mean Squared Error (MSE) and Structural Similarity Index Measure (SSIM) loss.
