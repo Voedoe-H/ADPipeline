@@ -12,7 +12,15 @@ Place the dataset in a suitable directory (e.g., `./data/raw/`) before running p
 
 ## Preprocessing
 
-The preprocessing step prepares the MVTec AD dataset for model training. To run the preprocessing script:
+The preprocessing script augments the "good" screw images from the MVTec AD dataset to increase the dataset size for training. It applies the following transformations:
+
+* Random rotations (±40°)
+* Shifting (±20%)
+* Shearing (±20%)
+* Zooming (±20%)
+* Horizontal flipping
+
+Usage:
 
 ```bash
 python data/preprocess.py
